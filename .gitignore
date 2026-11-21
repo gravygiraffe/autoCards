@@ -1,0 +1,9 @@
+tailwindcss-linux-x64
+pyenv/
+__pycache__
+
+cards/*
+!cards/.gitkeep
+
+questions/*
+!questions/.gitkeep

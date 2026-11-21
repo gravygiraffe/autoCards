@@ -1,0 +1,15 @@
+@import "tailwindcss" source(none);
+@source "./*.html";
+@source "../static/*.js";
+
+@custom-variant dark (&:where(.dark, .dark *));
+/* Uses :is() so tracking-mode styles win over the plain and dark: styles they override. */
+@custom-variant tracking (&:is(.tracking *));
+
+/* LaTeX (rendered by KaTeX in common.js): let wide equations scroll instead of overflowing. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-block: 0.5em;
+  padding-block: 0.25em;
+}
