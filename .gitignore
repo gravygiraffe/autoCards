@@ -1,6 +1,7 @@
 tailwindcss-linux-x64
 pyenv/
 __pycache__
+AGENTS.md
 
 cards/*
 !cards/.gitkeep
