@@ -91,7 +91,10 @@ def load_json_files(folder, progress_file, parse):
 
 
 def load_decks():
-    return load_json_files(CARDS_DIR, CARD_PROGRESS, lambda data: {"cards": normalize_cards(data.get("cards", {}))})
+    def parse(data):
+        return {"cards": normalize_cards(data.get("cards", {}))}
+
+    return load_json_files(CARDS_DIR, CARD_PROGRESS, parse)
 
 
 # ---- Quizzes ----
@@ -137,7 +140,9 @@ def load_progress(path):
         data = json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    return data
 
 
 def save_progress(path, data):
@@ -165,7 +170,8 @@ def apply_update(data, update, group_key, item_key, statuses):
         data.pop(group, None)
         return
 
-    item, status = update.get(item_key), update.get("status")
+    item = update.get(item_key)
+    status = update.get("status")
     if not isinstance(item, str):
         raise ValueError(f"'{item_key}' must be a string")
     if status is not None and status not in statuses:
@@ -282,8 +288,10 @@ def main():
     build_css()
     decks = load_decks()
     quizzes = load_quizzes()
-    print(f"Loaded {len(decks)} deck(s), {sum(len(d['cards']) for d in decks)} card(s)")
-    print(f"Loaded {len(quizzes)} quiz(zes), {sum(len(q['questions']) for q in quizzes)} question(s)")
+    card_count = sum(len(d["cards"]) for d in decks)
+    question_count = sum(len(q["questions"]) for q in quizzes)
+    print(f"Loaded {len(decks)} deck(s), {card_count} card(s)")
+    print(f"Loaded {len(quizzes)} quiz(zes), {question_count} question(s)")
     app.run(host=args.host, port=args.port)
 
 

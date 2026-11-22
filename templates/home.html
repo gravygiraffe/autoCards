@@ -20,13 +20,12 @@
   </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="min-h-dvh bg-slate-100 text-slate-800 antialiased transition-colors dark:bg-neutral-900 dark:text-neutral-100">
-  <main class="mx-auto max-w-3xl px-4 pt-6 pb-10 sm:pt-10">
-    <header class="mb-6 flex items-center justify-between sm:mb-8">
+<body>
+  <main class="page">
+    <header class="site-header">
       <span class="w-10"></span>
-      <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">autoCards</h1>
-      <button type="button" id="theme-btn" aria-label="Toggle dark mode"
-        class="flex size-10 cursor-pointer items-center justify-center rounded-full text-slate-600 hover:bg-slate-200 dark:text-neutral-300 dark:hover:bg-neutral-800">
+      <h1 class="site-title">autoCards</h1>
+      <button type="button" id="theme-btn" aria-label="Toggle dark mode" class="icon-btn">
         <svg class="size-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="hidden size-5 dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path stroke-linecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
       </button>
@@ -35,35 +34,33 @@
     <!-- Flashcard decks. data-deck is the deck's position in DECKS. -->
     <section>
       <h2 class="mb-4">
-        <button type="button" class="section-toggle flex cursor-pointer items-center gap-1 rounded-md text-lg font-semibold text-slate-600 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-neutral-400 dark:hover:text-neutral-200 dark:focus-visible:ring-neutral-400"
-          aria-expanded="true" aria-controls="flashcards-body" data-section="flashcards">
+        <button type="button" class="section-toggle" aria-expanded="true" aria-controls="flashcards-body" data-section="flashcards">
           <svg class="chevron size-5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
           Flashcards
         </button>
       </h2>
       <div id="flashcards-body">
       {% if decks %}
-      <ul class="grid gap-3 sm:grid-cols-2 sm:gap-4">
+      <ul class="tile-grid">
         {% for deck in decks %}
         <li>
-          <a href="{{ url_for('cards', deck=deck.id) }}" data-deck="{{ loop.index0 }}"
-            class="deck-link block rounded-xl bg-white p-4 shadow transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:p-5 dark:bg-neutral-800 dark:shadow-black/30 dark:focus-visible:ring-neutral-400">
-            <span class="block text-lg font-semibold break-words sm:text-xl">{{ deck.title }}</span>
-            <span class="mt-2 flex justify-between gap-2 text-sm text-slate-500 dark:text-neutral-400">
+          <a href="{{ url_for('cards', deck=deck.id) }}" data-deck="{{ loop.index0 }}" class="deck-link tile">
+            <span class="tile-title">{{ deck.title }}</span>
+            <span class="tile-meta">
               <span>{{ deck.cards | length }} card{{ "" if deck.cards | length == 1 else "s" }}</span>
               {% if deck.date %}<span>{{ deck.date }}</span>{% endif %}
             </span>
-            <span class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-neutral-700">
-              <span class="bar-good h-full bg-emerald-500 transition-all" style="width: 0%"></span>
-              <span class="bar-bad h-full bg-amber-400 transition-all" style="width: 0%"></span>
+            <span class="tile-bar">
+              <span class="bar-good bg-emerald-500" style="width: 0%"></span>
+              <span class="bar-bad bg-amber-400" style="width: 0%"></span>
             </span>
-            <span class="stats mt-1.5 block text-xs text-slate-500 dark:text-neutral-400">&nbsp;</span>
+            <span class="stats tile-stats">&nbsp;</span>
           </a>
         </li>
         {% endfor %}
       </ul>
       {% else %}
-      <p class="text-center text-slate-500 dark:text-neutral-400">No decks found. Add JSON files to the <code>cards</code> folder and refresh.</p>
+      <p class="muted text-center">No decks found. Add JSON files to the <code>cards</code> folder and refresh.</p>
       {% endif %}
       </div>
     </section>
@@ -71,35 +68,33 @@
     <!-- Quizzes. data-quiz is the quiz's position in QUIZZES. -->
     <section class="mt-10">
       <h2 class="mb-4">
-        <button type="button" class="section-toggle flex cursor-pointer items-center gap-1 rounded-md text-lg font-semibold text-slate-600 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-neutral-400 dark:hover:text-neutral-200 dark:focus-visible:ring-neutral-400"
-          aria-expanded="true" aria-controls="quizzes-body" data-section="quizzes">
+        <button type="button" class="section-toggle" aria-expanded="true" aria-controls="quizzes-body" data-section="quizzes">
           <svg class="chevron size-5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
           Quizzes
         </button>
       </h2>
       <div id="quizzes-body">
       {% if quizzes %}
-      <ul class="grid gap-3 sm:grid-cols-2 sm:gap-4">
+      <ul class="tile-grid">
         {% for quiz in quizzes %}
         <li>
-          <a href="{{ url_for('quiz', quiz=quiz.id) }}" data-quiz="{{ loop.index0 }}"
-            class="quiz-link block rounded-xl bg-white p-4 shadow transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:p-5 dark:bg-neutral-800 dark:shadow-black/30 dark:focus-visible:ring-neutral-400">
-            <span class="block text-lg font-semibold break-words sm:text-xl">{{ quiz.title }}</span>
-            <span class="mt-2 flex justify-between gap-2 text-sm text-slate-500 dark:text-neutral-400">
+          <a href="{{ url_for('quiz', quiz=quiz.id) }}" data-quiz="{{ loop.index0 }}" class="quiz-link tile">
+            <span class="tile-title">{{ quiz.title }}</span>
+            <span class="tile-meta">
               <span>{{ quiz.questions | length }} question{{ "" if quiz.questions | length == 1 else "s" }}</span>
               {% if quiz.date %}<span>{{ quiz.date }}</span>{% endif %}
             </span>
-            <span class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-neutral-700">
-              <span class="bar-good h-full bg-emerald-500 transition-all" style="width: 0%"></span>
-              <span class="bar-bad h-full bg-red-500 transition-all" style="width: 0%"></span>
+            <span class="tile-bar">
+              <span class="bar-good bg-emerald-500" style="width: 0%"></span>
+              <span class="bar-bad bg-red-500" style="width: 0%"></span>
             </span>
-            <span class="stats mt-1.5 block text-xs text-slate-500 dark:text-neutral-400">&nbsp;</span>
+            <span class="stats tile-stats">&nbsp;</span>
           </a>
         </li>
         {% endfor %}
       </ul>
       {% else %}
-      <p class="text-center text-slate-500 dark:text-neutral-400">No quizzes found. Add JSON files to the <code>questions</code> folder and refresh.</p>
+      <p class="muted text-center">No quizzes found. Add JSON files to the <code>questions</code> folder and refresh.</p>
       {% endif %}
       </div>
     </section>

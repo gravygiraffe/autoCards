@@ -1,5 +1,5 @@
-// Multiple choice quiz page. QUIZ is set by templates/quiz.html; $, $$, fetchProgress and
-// postProgress come from common.js.
+// Multiple choice quiz page. QUIZ is set by templates/quiz.html; $, $$, the progress
+// helpers and the segmented progress bar come from common.js.
 //
 // A "round" goes through the questions in `order`. Answers given this round are kept in
 // `answers` (so going back shows what was picked), and the result of each checked answer
@@ -7,49 +7,19 @@
 
 const PROGRESS_URL = "api/quiz-progress";
 
-// Tailwind only generates classes it can see written out in the templates and scripts,
-// so every class that JavaScript adds is spelled out in full here.
-const OPTION_BASE = "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[0.9375rem] font-medium shadow transition-colors dark:shadow-black/30";
-const OPTION_STYLES = {
-  // Before checking
-  idle: {
-    button: "cursor-pointer bg-white outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:focus-visible:ring-neutral-400",
-    letter: "bg-slate-100 text-slate-600 dark:bg-neutral-700 dark:text-neutral-300",
-  },
-  selected: {
-    button: "cursor-pointer bg-indigo-50 outline-none ring-2 ring-indigo-500 dark:bg-neutral-700 dark:ring-neutral-300",
-    letter: "bg-indigo-600 text-white dark:bg-neutral-200 dark:text-neutral-900",
-  },
-  // After checking
-  right: {
-    button: "bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 dark:bg-emerald-400/20 dark:text-emerald-300 dark:ring-emerald-400",
-    letter: "bg-emerald-500 text-white",
-    mark: "\u2713",
-  },
-  missed: {
-    button: "bg-emerald-50 text-emerald-800 outline-2 outline-offset-0 outline-dashed outline-emerald-500 dark:bg-emerald-400/10 dark:text-emerald-300 dark:outline-emerald-400",
-    letter: "bg-emerald-500 text-white",
-    mark: "Missed",
-  },
-  wrong: {
-    button: "bg-red-100 text-red-800 ring-2 ring-red-500 dark:bg-red-400/20 dark:text-red-300 dark:ring-red-400",
-    letter: "bg-red-500 text-white",
-    mark: "\u2717",
-  },
-  dim: {
-    button: "bg-white opacity-50 dark:bg-neutral-800",
-    letter: "bg-slate-100 text-slate-600 dark:bg-neutral-700 dark:text-neutral-300",
-  },
+// Answer buttons are styled by the .option components in input.css, from their
+// data-state ("idle", "selected", "right", "missed", "wrong" or "dim"). Checked answers
+// also get a mark after the text.
+const OPTION_MARKS = {
+  right: "\u2713",
+  missed: "Missed",
+  wrong: "\u2717",
 };
-const FEEDBACK_COLORS = {
-  correct: "text-emerald-700 dark:text-emerald-300",
-  incorrect: "text-red-600 dark:text-red-400",
-};
+// Segment colors for this round's results (the rest are in common.js). Tailwind only
+// generates classes it can see written out in full, so these are complete class names.
 const SEGMENT_COLORS = {
   correct: "bg-emerald-500",
   incorrect: "bg-red-500",
-  current: "bg-slate-400 dark:bg-neutral-400",
-  empty: "bg-slate-200 dark:bg-neutral-700",
 };
 
 const quiz = QUIZ;
@@ -65,27 +35,18 @@ async function loadProgress() {
   try {
     progress = await fetchProgress(PROGRESS_URL);
   } catch {
-    $("save-error").classList.remove("hidden");
+    showSaveError(true);
   }
   render();
-}
-
-// The page updates `progress` itself right away rather than waiting for this to finish.
-async function persist(update) {
-  try {
-    await postProgress(PROGRESS_URL, update);
-    $("save-error").classList.add("hidden");
-  } catch {
-    $("save-error").classList.remove("hidden");
-  }
 }
 
 // Questions are identified by their prompt, so rewording a prompt loses its result.
 const statusOf = (q) => progress[quiz.id]?.[q.prompt];
 
 function setStatus(q, status) {
-  (progress[quiz.id] ??= {})[q.prompt] = status;
-  persist({ quiz: quiz.id, question: q.prompt, status });
+  progress[quiz.id] ??= {};
+  progress[quiz.id][q.prompt] = status;
+  saveProgress(PROGRESS_URL, { quiz: quiz.id, question: q.prompt, status });
 }
 
 function savedCounts() {
@@ -123,7 +84,8 @@ function resultOf(n) {
 // "B", "A and C", "A, C and D"
 function listKeys(keys) {
   const letters = keys.map((k) => k.toUpperCase());
-  return letters.length > 1 ? `${letters.slice(0, -1).join(", ")} and ${letters.at(-1)}` : letters[0];
+  if (letters.length === 1) return letters[0];
+  return `${letters.slice(0, -1).join(", ")} and ${letters.at(-1)}`;
 }
 
 // Pick or unpick an answer. Single-answer questions replace the previous pick.
@@ -133,12 +95,9 @@ function toggleOption(key) {
   const q = quiz.questions[n];
   const a = answerOf(n);
   if (a.checked || !q.options.some((o) => o.key === key)) return;
-  if (isMulti(q)) {
-    if (a.selected.has(key)) a.selected.delete(key);
-    else a.selected.add(key);
-  } else {
-    a.selected = new Set([key]);
-  }
+  if (!isMulti(q)) a.selected = new Set([key]);
+  else if (a.selected.has(key)) a.selected.delete(key);
+  else a.selected.add(key);
   answers.set(n, a);
   render();
 }
@@ -165,91 +124,107 @@ function primaryAction() {
 }
 
 // ---- Segmented progress bar ----
-const bar = $("progress-bar");
+// Segments show this round's result for each question (green / red), grey if not answered yet.
+function segmentColor(i) {
+  const result = resultOf(order[i]);
+  if (result) return SEGMENT_COLORS[result];
+  return i === index ? SEGMENT_CURRENT : SEGMENT_EMPTY;
+}
 
-// Segments show this round's result for each question (green / red), grey if not
-// answered yet. The current question's segment is drawn taller.
 function renderBar() {
-  const total = order.length;
-  $("progress").textContent = `${Math.min(index + 1, total)} / ${total}`;
-  if (!total) {
-    const color = quiz.questions.length ? SEGMENT_COLORS.correct : SEGMENT_COLORS.empty;
-    bar.replaceChildren(Object.assign(document.createElement("span"), { className: `h-2 flex-1 rounded-full ${color}` }));
-    return;
-  }
-  bar.style.gap = total > 100 ? "0px" : total > 40 ? "1px" : "3px";
-  if (bar.children.length !== total) {
-    bar.replaceChildren(...Array.from({ length: total }, () => document.createElement("span")));
-  }
-  const shape = total > 100 ? "" : "rounded-full";
-  [...bar.children].forEach((segment, i) => {
-    const color = SEGMENT_COLORS[resultOf(order[i])] ?? (i === index ? SEGMENT_COLORS.current : SEGMENT_COLORS.empty);
-    segment.className = `min-w-0 flex-1 transition-all duration-200 ${shape} ${i === index ? "h-3.5" : "h-2"} ${color}`;
+  renderProgressBar({
+    total: order.length,
+    index,
+    colorOf: segmentColor,
+    // Nothing left to ask: full green if every question is already correct.
+    emptyColor: quiz.questions.length ? SEGMENT_COLORS.correct : SEGMENT_EMPTY,
   });
-  bar.setAttribute("aria-valuemin", "1");
-  bar.setAttribute("aria-valuemax", String(total));
-  bar.setAttribute("aria-valuenow", String(Math.min(index + 1, total)));
 }
 
-function barIndexAt(clientX) {
-  const rect = bar.getBoundingClientRect();
-  const i = Math.floor(((clientX - rect.left) / rect.width) * order.length);
-  return Math.max(0, Math.min(order.length - 1, i));
-}
-
-// Click a segment to jump to that question, or drag along the bar to scrub through them.
-let scrubbing = false;
-bar.addEventListener("pointerdown", (e) => {
-  if (!order.length) return;
-  scrubbing = true;
-  bar.setPointerCapture(e.pointerId);
-  jumpTo(barIndexAt(e.clientX), true);
-});
-bar.addEventListener("pointermove", (e) => {
-  if (scrubbing) jumpTo(barIndexAt(e.clientX), false);
-});
-bar.addEventListener("pointerup", () => (scrubbing = false));
-bar.addEventListener("pointercancel", () => (scrubbing = false));
+enableScrubbing(() => order.length, jumpTo);
 
 // ---- Rendering ----
+// An answer button's data-state (see the .option components in input.css).
+function optionState(picked, correct, checked) {
+  if (!checked) return picked ? "selected" : "idle";
+  if (correct) return picked ? "right" : "missed";
+  return picked ? "wrong" : "dim";
+}
+
 function renderOptions(q, a) {
   const multi = isMulti(q);
   const buttons = q.options.map((o) => {
     const picked = a.selected.has(o.key);
-    const correct = q.correct.includes(o.key);
-    let state;
-    if (!a.checked) state = picked ? "selected" : "idle";
-    else if (correct) state = picked ? "right" : "missed";
-    else state = picked ? "wrong" : "dim";
-    const style = OPTION_STYLES[state];
+    const state = optionState(picked, q.correct.includes(o.key), a.checked);
 
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = `${OPTION_BASE} ${style.button}`;
+    btn.className = "option";
+    btn.dataset.state = state;
     btn.disabled = a.checked;
     btn.setAttribute("role", multi ? "checkbox" : "radio");
     btn.setAttribute("aria-checked", String(picked));
     btn.addEventListener("click", () => toggleOption(o.key));
 
-    // Round letters for "choose one", square ones for "select all that apply".
+    // The role also makes the letter round ("choose one") or square ("select all that apply").
     const letter = document.createElement("span");
-    letter.className = `flex size-8 shrink-0 items-center justify-center text-sm font-semibold ${multi ? "rounded-md" : "rounded-full"} ${style.letter}`;
+    letter.className = "option-letter";
     letter.textContent = o.key.toUpperCase();
 
     const text = document.createElement("span");
-    text.className = "min-w-0 flex-1 break-words whitespace-pre-line";
+    text.className = "option-text";
     setRichText(text, o.text);
 
     btn.append(letter, text);
-    if (style.mark) {
+    if (state in OPTION_MARKS) {
       const mark = document.createElement("span");
-      mark.className = "shrink-0 text-sm font-semibold";
-      mark.textContent = state === "missed" && !multi ? "Correct answer" : style.mark;
+      mark.className = "option-mark";
+      // With only one right answer, "Missed" reads better as "Correct answer".
+      mark.textContent = state === "missed" && !multi ? "Correct answer" : OPTION_MARKS[state];
       btn.append(mark);
     }
     return btn;
   });
   $("options").replaceChildren(...buttons);
+}
+
+// The results screen at the end of a round (or when there's nothing to ask).
+function renderDone(saved, round) {
+  const total = order.length;
+  const empty = !quiz.questions.length;
+  if (!total) {
+    $("done-title").textContent = empty ? "This quiz has no questions yet." : "You've answered every question correctly!";
+    $("done-score").textContent = "";
+    $("done-summary").textContent = "";
+  } else {
+    const skipped = total - round.correct - round.incorrect;
+    const percent = Math.round((round.correct / total) * 100);
+    $("done-title").textContent = "Quiz complete!";
+    $("done-score").textContent = `${round.correct} / ${total}`;
+    $("done-summary").textContent = skipped ? `${percent}% correct · ${skipped} skipped` : `${percent}% correct`;
+  }
+  $("review-btn").classList.toggle("hidden", !total);
+  $("retry-btn").classList.toggle("hidden", saved.correct === quiz.questions.length);
+  $("restart-btn").classList.toggle("hidden", empty);
+}
+
+function renderFeedback(q, result) {
+  const feedback = $("feedback");
+  feedback.dataset.result = result ?? "";
+  if (!result) {
+    feedback.textContent = "";
+  } else if (result === "correct") {
+    feedback.textContent = "Correct!";
+  } else {
+    const answer = isMulti(q) ? "the answers are" : "the answer is";
+    feedback.textContent = `Not quite \u2014 ${answer} ${listKeys(q.correct)}.`;
+  }
+}
+
+function checkButtonLabel(a) {
+  if (!a.checked) return "Check";
+  if (index < order.length - 1) return "Next";
+  return "Results";
 }
 
 // Update the whole page to match the current state. Called after every change.
@@ -265,50 +240,20 @@ function render() {
   const done = index >= total;
   $("study").classList.toggle("hidden", done);
   $("done").classList.toggle("hidden", !done);
-
-  if (done) {
-    const empty = !quiz.questions.length;
-    const answered = round.correct + round.incorrect;
-    const skipped = total - answered;
-    const notCorrect = quiz.questions.length - saved.correct;
-    if (!total) {
-      $("done-title").textContent = empty ? "This quiz has no questions yet." : "You've answered every question correctly!";
-      $("done-score").textContent = "";
-      $("done-summary").textContent = "";
-    } else {
-      $("done-title").textContent = "Quiz complete!";
-      $("done-score").textContent = `${round.correct} / ${total}`;
-      $("done-summary").textContent =
-        `${Math.round((round.correct / total) * 100)}% correct` + (skipped ? ` · ${skipped} skipped` : "");
-    }
-    $("review-btn").classList.toggle("hidden", !total);
-    $("retry-btn").classList.toggle("hidden", notCorrect === 0);
-    $("restart-btn").classList.toggle("hidden", empty);
-    return;
-  }
+  if (done) return renderDone(saved, round);
 
   const n = order[index];
   const q = quiz.questions[n];
   const a = answerOf(n);
-  const result = resultOf(n);
 
   $("question-label").textContent = `Question ${index + 1}`;
   $("question-hint").textContent = isMulti(q) ? "Select all that apply" : "Choose one";
   setRichText($("question-prompt"), q.prompt);
   renderOptions(q, a);
-
-  const feedback = $("feedback");
-  feedback.classList.remove(...FEEDBACK_COLORS.correct.split(" "), ...FEEDBACK_COLORS.incorrect.split(" "));
-  if (result) {
-    feedback.classList.add(...FEEDBACK_COLORS[result].split(" "));
-    const answer = q.correct.length > 1 ? `the answers are ${listKeys(q.correct)}` : `the answer is ${listKeys(q.correct)}`;
-    feedback.textContent = result === "correct" ? "Correct!" : `Not quite \u2014 ${answer}.`;
-  } else {
-    feedback.textContent = "";
-  }
+  renderFeedback(q, resultOf(n));
 
   const checkBtn = $("check-btn");
-  checkBtn.textContent = !a.checked ? "Check" : index < total - 1 ? "Next" : "Results";
+  checkBtn.textContent = checkButtonLabel(a);
   checkBtn.disabled = !a.checked && !a.selected.size;
   $("prev-btn").disabled = index === 0;
   $("next-btn").disabled = index === total - 1;
@@ -335,15 +280,17 @@ function showWith(type, dir = 0) {
   });
 }
 
-const pulse = (el) => animate(el, [{ transform: "scale(1)" }, { transform: "scale(1.03)" }, { transform: "scale(1)" }], { duration: 320, easing: "ease-out" });
-const shake = (el) =>
-  animate(el, [0, -8, 8, -6, 6, -3, 0].map((x) => ({ transform: `translateX(${x}px)` })), { duration: 380, easing: "ease-out" });
-
-// ---- Actions ----
-function goHome() {
-  location.href = $("back-btn").href;
+function pulse(el) {
+  const frames = [{ transform: "scale(1)" }, { transform: "scale(1.03)" }, { transform: "scale(1)" }];
+  animate(el, frames, { duration: 320, easing: "ease-out" });
 }
 
+function shake(el) {
+  const frames = [0, -8, 8, -6, 6, -3, 0].map((x) => ({ transform: `translateX(${x}px)` }));
+  animate(el, frames, { duration: 380, easing: "ease-out" });
+}
+
+// ---- Actions ----
 // Move forward (1) or back (-1). From the results, back returns to the last question.
 function go(step) {
   const next = index + step;
@@ -353,6 +300,7 @@ function go(step) {
   return true;
 }
 
+// Move to any question. Clicks animate; scrubbing (dragging along the bar) jumps instantly.
 function jumpTo(target, animated) {
   if (target === index || target < 0 || target >= order.length) return;
   const dir = Math.sign(target - index);
@@ -366,38 +314,32 @@ function finish() {
   showWith("fade");
 }
 
-// Choose which questions to ask ("all" or "missed") and start a new round.
-function setFilter(value) {
-  filter = value;
-  $$(".filter-btn").forEach((btn) => {
-    const active = btn.dataset.filter === filter;
-    ["bg-white", "text-slate-900", "shadow", "dark:bg-neutral-600", "dark:text-white"].forEach((cls) =>
-      btn.classList.toggle(cls, active)
-    );
-  });
-  order = quiz.questions
-    .map((_, n) => n)
-    .filter((n) => filter === "all" || statusOf(quiz.questions[n]) !== "correct");
+// Start a new round from the first question in `order`.
+function restartRound() {
   index = 0;
   answers = new Map();
   showWith("fade");
 }
 
-// Shuffle the question order (Fisher-Yates) and start a new round.
+// Choose which questions to ask ("all" or "missed") and start a new round.
+function setFilter(value) {
+  filter = value;
+  highlightFilter(filter);
+  order = quiz.questions
+    .map((_, n) => n)
+    .filter((n) => filter === "all" || statusOf(quiz.questions[n]) !== "correct");
+  restartRound();
+}
+
 function shuffle() {
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  index = 0;
-  answers = new Map();
-  showWith("fade");
+  shuffleInPlace(order);
+  restartRound();
 }
 
 function resetQuiz() {
   if (!confirm(`Reset all progress for "${quiz.title}"?`)) return;
   delete progress[quiz.id];
-  persist({ quiz: quiz.id, reset: true });
+  saveProgress(PROGRESS_URL, { quiz: quiz.id, reset: true });
   setFilter("all");
 }
 

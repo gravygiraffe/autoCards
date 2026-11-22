@@ -6,6 +6,228 @@
 /* Uses :is() so tracking-mode styles win over the plain and dark: styles they override. */
 @custom-variant tracking (&:is(.tracking *));
 
+@layer base {
+  body {
+    @apply min-h-dvh bg-slate-100 text-slate-800 antialiased transition-colors dark:bg-neutral-900 dark:text-neutral-100;
+  }
+}
+
+/*
+  Reusable pieces shared by the pages. Utility classes always win over these, so an element
+  can tweak a component (e.g. class="panel bg-indigo-600"). Anything JavaScript toggles,
+  like `hidden`, is left out of the components and written on the element instead.
+*/
+@layer components {
+  /* ---- Page frame: header with the title and dark mode button ---- */
+  .page {
+    @apply mx-auto max-w-3xl px-4 pt-6 pb-10 sm:pt-10;
+  }
+  .site-header {
+    @apply mb-6 flex items-center justify-between sm:mb-8;
+  }
+  .site-title {
+    @apply text-3xl font-bold tracking-tight sm:text-4xl;
+  }
+  .icon-btn {
+    @apply flex size-10 cursor-pointer items-center justify-center rounded-full text-slate-600 hover:bg-slate-200 dark:text-neutral-300 dark:hover:bg-neutral-800;
+  }
+  .muted {
+    @apply text-slate-500 dark:text-neutral-400;
+  }
+
+  /* ---- Buttons: .btn plus a color, and .btn-control for the bigger controls under a card ---- */
+  .btn {
+    @apply cursor-pointer rounded-lg px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-control {
+    @apply px-3 py-3 sm:py-2;
+  }
+  .btn-primary {
+    @apply bg-indigo-600 text-white shadow hover:bg-indigo-700 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-white;
+  }
+  .btn-secondary {
+    @apply bg-white shadow hover:bg-slate-50 dark:bg-neutral-800 dark:hover:bg-neutral-700;
+  }
+  .btn-muted {
+    @apply bg-slate-100 hover:bg-slate-200 dark:bg-neutral-700 dark:hover:bg-neutral-600;
+  }
+  .btn-amber {
+    @apply bg-amber-100 text-amber-800 ring-amber-500 hover:bg-amber-200 dark:bg-amber-400/15 dark:text-amber-300 dark:ring-amber-400 dark:hover:bg-amber-400/25;
+  }
+  .btn-emerald {
+    @apply bg-emerald-100 text-emerald-800 ring-emerald-500 hover:bg-emerald-200 dark:bg-emerald-400/15 dark:text-emerald-300 dark:ring-emerald-400 dark:hover:bg-emerald-400/25;
+  }
+  .btn-red {
+    @apply bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-400/15 dark:text-red-300 dark:hover:bg-red-400/25;
+  }
+  .link-danger {
+    @apply cursor-pointer text-slate-400 underline-offset-2 hover:text-red-600 hover:underline dark:text-neutral-500 dark:hover:text-red-400;
+  }
+
+  /* ---- Home page ---- */
+  .section-toggle {
+    @apply flex cursor-pointer items-center gap-1 rounded-md text-lg font-semibold text-slate-600 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-neutral-400 dark:hover:text-neutral-200 dark:focus-visible:ring-neutral-400;
+  }
+  .tile-grid {
+    @apply grid gap-3 sm:grid-cols-2 sm:gap-4;
+  }
+  .tile {
+    @apply block rounded-xl bg-white p-4 shadow transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:p-5 dark:bg-neutral-800 dark:shadow-black/30 dark:focus-visible:ring-neutral-400;
+  }
+  .tile-title {
+    @apply block text-lg font-semibold wrap-break-word sm:text-xl;
+  }
+  .tile-meta {
+    @apply mt-2 flex justify-between gap-2 text-sm text-slate-500 dark:text-neutral-400;
+  }
+  /* Stacked green / amber-or-red bar; home.js sets the widths */
+  .tile-bar {
+    @apply mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-neutral-700;
+  }
+  .tile-bar > span {
+    @apply h-full transition-all;
+  }
+  .tile-stats {
+    @apply mt-1.5 block text-xs text-slate-500 dark:text-neutral-400;
+  }
+
+  /* ---- Study pages (cards and quiz) ---- */
+  .study-header {
+    @apply mb-3 flex items-center justify-between gap-2;
+  }
+  .back-link {
+    @apply shrink-0 cursor-pointer rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-indigo-600 shadow hover:bg-indigo-50 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700;
+  }
+  .study-title {
+    @apply min-w-0 truncate text-center text-lg font-semibold sm:text-xl;
+  }
+  .position {
+    @apply shrink-0 text-sm text-slate-500 tabular-nums dark:text-neutral-400;
+  }
+  /* Segments are added by renderProgressBar() in common.js */
+  .progress-bar {
+    @apply mb-2 flex h-5 w-full cursor-pointer touch-none items-center select-none;
+  }
+  .toolbar {
+    @apply mb-4 flex min-h-8 items-center justify-between gap-2;
+  }
+  /* Pill-shaped group of .filter-btn; the pressed one is highlighted */
+  .filter-group {
+    @apply rounded-lg bg-slate-200 p-0.5 text-xs font-medium dark:bg-neutral-800;
+  }
+  .filter-btn {
+    @apply cursor-pointer rounded-md px-2.5 py-1 text-slate-500 dark:text-neutral-400;
+    @apply aria-pressed:bg-white aria-pressed:text-slate-900 aria-pressed:shadow dark:aria-pressed:bg-neutral-600 dark:aria-pressed:text-white;
+  }
+  /* White rounded box: card faces, the question and the round-complete box */
+  .panel {
+    @apply rounded-2xl bg-white shadow-lg dark:bg-neutral-800 dark:shadow-black/40;
+  }
+  .corner-label {
+    @apply absolute top-3 left-4 text-xs font-semibold tracking-widest text-slate-400 uppercase sm:top-4 sm:left-5 dark:text-neutral-500;
+  }
+  .corner-badge {
+    @apply absolute top-3 right-4 rounded-full px-2 py-0.5 text-xs font-semibold sm:top-4 sm:right-5;
+  }
+  .card-face {
+    @apply absolute inset-0 flex touch-pan-y flex-col items-center justify-center overflow-y-auto p-6 backface-hidden sm:p-8;
+  }
+  .card-text {
+    @apply text-center text-xl font-medium wrap-break-word whitespace-pre-line sm:text-2xl;
+  }
+  /* "Got it" / "Still learning" badge in the card's corner; cards.js sets data-status */
+  .card-badge[data-status="got"] {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-300;
+  }
+  .card-badge[data-status="learning"] {
+    @apply bg-amber-100 text-amber-800 dark:bg-amber-400/20 dark:text-amber-300;
+  }
+  /* Colored layer over a card while it's swiped; cards.js sets data-tint */
+  .swipe-tint {
+    @apply pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl text-2xl font-bold opacity-0 sm:text-3xl;
+  }
+  .swipe-tint[data-tint="got"] {
+    @apply bg-emerald-500 text-white;
+  }
+  .swipe-tint[data-tint="learning"] {
+    @apply bg-amber-400 text-amber-950;
+  }
+
+  /*
+    Quiz answer buttons, built by renderOptions() in quiz.js. It sets data-state:
+      before checking:  idle, selected
+      after checking:   right (picked, correct), wrong (picked, incorrect),
+                        missed (correct but not picked), dim (neither)
+    Letters are round for "choose one" (role="radio") and square for "select all" (role="checkbox").
+  */
+  .option {
+    @apply flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[0.9375rem] font-medium shadow transition-colors dark:shadow-black/30;
+  }
+  .option-letter {
+    @apply flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold;
+  }
+  .option[role="checkbox"] .option-letter {
+    @apply rounded-md;
+  }
+  .option-text {
+    @apply min-w-0 flex-1 wrap-break-word whitespace-pre-line;
+  }
+  .option-mark {
+    @apply shrink-0 text-sm font-semibold;
+  }
+  .option[data-state="idle"] {
+    @apply cursor-pointer bg-white outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:focus-visible:ring-neutral-400;
+  }
+  .option[data-state="selected"] {
+    @apply cursor-pointer bg-indigo-50 outline-none ring-2 ring-indigo-500 dark:bg-neutral-700 dark:ring-neutral-300;
+  }
+  .option[data-state="right"] {
+    @apply bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 dark:bg-emerald-400/20 dark:text-emerald-300 dark:ring-emerald-400;
+  }
+  .option[data-state="missed"] {
+    @apply bg-emerald-50 text-emerald-800 outline-2 outline-offset-0 outline-dashed outline-emerald-500 dark:bg-emerald-400/10 dark:text-emerald-300 dark:outline-emerald-400;
+  }
+  .option[data-state="wrong"] {
+    @apply bg-red-100 text-red-800 ring-2 ring-red-500 dark:bg-red-400/20 dark:text-red-300 dark:ring-red-400;
+  }
+  .option[data-state="dim"] {
+    @apply bg-white opacity-50 dark:bg-neutral-800;
+  }
+  .option[data-state="idle"] .option-letter,
+  .option[data-state="dim"] .option-letter {
+    @apply bg-slate-100 text-slate-600 dark:bg-neutral-700 dark:text-neutral-300;
+  }
+  .option[data-state="selected"] .option-letter {
+    @apply bg-indigo-600 text-white dark:bg-neutral-200 dark:text-neutral-900;
+  }
+  .option[data-state="right"] .option-letter,
+  .option[data-state="missed"] .option-letter {
+    @apply bg-emerald-500 text-white;
+  }
+  .option[data-state="wrong"] .option-letter {
+    @apply bg-red-500 text-white;
+  }
+  /* "Correct!" / "Not quite" under the answers; quiz.js sets data-result */
+  .feedback[data-result="correct"] {
+    @apply text-emerald-700 dark:text-emerald-300;
+  }
+  .feedback[data-result="incorrect"] {
+    @apply text-red-600 dark:text-red-400;
+  }
+  .button-row {
+    @apply mt-5 flex flex-wrap justify-center gap-2;
+  }
+  .shortcuts {
+    @apply mt-4 text-center text-xs text-slate-400 dark:text-neutral-500;
+  }
+  .totals {
+    @apply mt-6 flex-col items-center gap-1 text-xs;
+  }
+  .save-error {
+    @apply mt-2 text-center text-xs text-red-600 dark:text-red-400;
+  }
+}
+
 /* LaTeX (rendered by KaTeX in common.js): let wide equations scroll instead of overflowing. */
 .katex-display {
   overflow-x: auto;
