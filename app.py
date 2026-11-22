@@ -18,12 +18,13 @@ static/style.css, which Tailwind generates from the templates and scripts on sta
 import argparse
 import json
 import os
-import subprocess
 import sys
 import threading
 from pathlib import Path
 
+import pytailwindcss
 from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
+from pytailwindcss.exceptions import PyTailwindCssException
 
 ROOT = Path(__file__).resolve().parent
 CARDS_DIR = ROOT / "cards"
@@ -32,7 +33,9 @@ TEMPLATES_DIR = ROOT / "templates"
 STATIC_DIR = ROOT / "static"
 CSS_INPUT = TEMPLATES_DIR / "input.css"
 CSS_OUTPUT = STATIC_DIR / "style.css"
-TAILWIND = ROOT / "tailwindcss-linux-x64"
+# Pinned so every machine builds the same style.css. pytailwindcss downloads this
+# version of the standalone Tailwind binary on first run.
+TAILWIND_VERSION = "v4.3.3"
 
 # Progress lives next to the decks and quizzes, so it's skipped when loading them.
 # Cards:   {"<deck id>": {"<card front>": "got" | "learning"}}
@@ -265,17 +268,17 @@ def build_css():
     Tailwind only includes classes it finds written out in templates/*.html and
     static/*.js (see templates/input.css), so classes must appear there as complete strings.
     """
-    if not TAILWIND.exists():
-        print("warning: tailwind binary not found, style.css not built", file=sys.stderr)
-        return
     STATIC_DIR.mkdir(exist_ok=True)
-    subprocess.run(
-        [str(TAILWIND), "--input", str(CSS_INPUT), "--output", str(CSS_OUTPUT), "--minify"],
-        cwd=TEMPLATES_DIR,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        pytailwindcss.run(
+            ["--input", str(CSS_INPUT), "--output", str(CSS_OUTPUT), "--minify"],
+            cwd=TEMPLATES_DIR,
+            auto_install=True,
+            version=TAILWIND_VERSION,
+        )
+    except (PyTailwindCssException, OSError) as e:
+        # Usually no internet on the first run; the committed style.css still works.
+        print(f"warning: couldn't get Tailwind, style.css not rebuilt: {e}", file=sys.stderr)
 
 
 def main():
