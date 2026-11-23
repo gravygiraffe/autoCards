@@ -1,4 +1,4 @@
-# autoCards
+# <img src="static/logo.svg" alt="" width="40" height="40" align="top"> autoCards
 Yet another flashcard app, but as a friend said, "Why not use Quizlet? Oh wait, they want all your money."
 
 ## Features
