@@ -1,6 +1,7 @@
 pyenv/
 __pycache__
 AGENTS.md
+last_opened.json
 
 cards/*
 !cards/.gitkeep

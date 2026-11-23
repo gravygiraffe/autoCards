@@ -8,6 +8,7 @@ Yet another flashcard app, but as a friend said, "Why not use Quizlet? Oh wait, 
 - Progress is saved to `cards/progress.json` and `questions/progress.json`
   - Flashcards: turn on "Track learning" to sort cards into "Got it" and "Still learning" by swiping, then study only the cards you don't know yet
   - Quizzes: each question's last result (correct or incorrect) is saved, and you can retry only the ones you got wrong
+- The home page lists the most recently opened decks and quizzes first (saved to `last_opened.json`); ones you haven't opened yet follow in alphabetical order
 - Shuffle, dark mode, keyboard shortcuts, and swipe gestures on touch screens
 - Instructions for AI agents in `ADDING_CARDS.md` and `ADDING_QUESTIONS.md`, so you can open an agent in this project and ask it to make flashcards or quizzes
 

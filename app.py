@@ -20,12 +20,14 @@ import json
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytailwindcss
 from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
 from pytailwindcss.exceptions import PyTailwindCssException
 
+# ---- File Paths ----
 ROOT = Path(__file__).resolve().parent
 CARDS_DIR = ROOT / "cards"
 QUESTIONS_DIR = ROOT / "questions"
@@ -42,6 +44,7 @@ TAILWIND_VERSION = "v4.3.3"
 # Quizzes: {"<quiz id>": {"<question prompt>": "correct" | "incorrect"}}
 CARD_PROGRESS = CARDS_DIR / "progress.json"
 QUIZ_PROGRESS = QUESTIONS_DIR / "progress.json"
+LAST_OPENED = ROOT / "last_opened.json"
 CARD_STATUSES = {"got", "learning"}
 QUIZ_STATUSES = {"correct", "incorrect"}
 
@@ -216,13 +219,43 @@ def progress_endpoints(path, group_key, item_key, statuses):
     return get, post
 
 
+# ---- Last opened ----
+
+def mark_opened(kind, item_id):
+    """Record that a deck ("cards") or quiz ("quizzes") was just opened."""
+    with progress_lock:
+        data = load_progress(LAST_OPENED)
+        if not isinstance(data.get(kind), dict):
+            data[kind] = {}
+        data[kind][item_id] = time.time()
+        save_progress(LAST_OPENED, data)
+
+
+def sort_by_last_opened(items, opened):
+    """Most recently opened first; never-opened items follow, still sorted by title."""
+    def key(item):
+        when = opened.get(item["id"])
+        return -when if isinstance(when, (int, float)) else float("inf")
+
+    # sort() is stable, so items with the same key keep their title order.
+    return sorted(items, key=key)
+
+
 # ---- Routes ----
 
 # Decks and quizzes are read on every request, so new or edited files show up on refresh.
 
 @app.get("/")
 def home():
-    return render_template("home.html", decks=load_decks(), quizzes=load_quizzes())
+    with progress_lock:
+        opened = load_progress(LAST_OPENED)
+    card_times = opened.get("cards") if isinstance(opened.get("cards"), dict) else {}
+    quiz_times = opened.get("quizzes") if isinstance(opened.get("quizzes"), dict) else {}
+    return render_template(
+        "home.html",
+        decks=sort_by_last_opened(load_decks(), card_times),
+        quizzes=sort_by_last_opened(load_quizzes(), quiz_times),
+    )
 
 
 def find(items, item_id):
@@ -234,6 +267,7 @@ def cards():
     deck = find(load_decks(), request.args.get("deck", ""))
     if deck is None:
         return redirect(url_for("home"))
+    mark_opened("cards", deck["id"])
     return render_template("cards.html", deck=deck)
 
 
@@ -242,6 +276,7 @@ def quiz():
     found = find(load_quizzes(), request.args.get("quiz", ""))
     if found is None:
         return redirect(url_for("home"))
+    mark_opened("quizzes", found["id"])
     return render_template("quiz.html", quiz=found)
 
 
